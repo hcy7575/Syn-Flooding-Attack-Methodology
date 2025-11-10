@@ -1,56 +1,105 @@
-# SYN Flooding — Authorized Academic Analysis / SYN Flooding — Yetkili Akademik Analiz
+# SYN Flooding — Authorized Academic Analysis
+## SYN Flooding — Yetkili Akademik Analiz
 
-## Özet / Summary
-Bu repo, yetkilendirilmiş bir akademik çalışma kapsamında gerçekleştirilen SYN Flooding deneyinin **sanitazed (anonimleştirilmiş)** raporunu, ölçüm grafiklerini ve güvenli olarak yerel ortamda (local) yeniden üretilebilecek bir laboratuvar setup'ını içerir.  
-This repository contains a sanitized version of an authorized academic SYN Flooding experiment report, measurement graphs, and a reproducible local lab setup for safe educational use.
+---
+
+## TL;DR / Kısa Özet
+**Türkçe:** Bu repo, yetkilendirilmiş bir akademik çalışma kapsamında gerçekleştirilen SYN Flooding deneyinin anonimleştirilmiş raporunu, ölçüm grafiklerini ve güvenli bir şekilde yerelde tekrar üretilebilecek bir laboratuvar kurulumunu içerir.  
+**English:** This repository contains a sanitized report of an authorized academic SYN Flooding experiment, measurement graphs, and a reproducible local lab setup for safe educational use.
 
 ---
 
 ## İzin / Permission
-Bu çalışma, raporun sahibi tarafından belirtilen şekilde akademik izinle gerçekleştirilmiştir. README ve `docs/permission_statement.pdf` dosyasında paylaşılacak kısa izin beyanı bulunmalıdır. Repo'ya **hiçbir çalıştırılabilir saldırı script'i**, ham paket yakalama (pcap) dosyası veya hedef IP/hostname içeren ham loglar eklenmemiştir.  
-This work was conducted under written authorization. The repo intentionally does **not** include runnable attack scripts, raw packet captures (pcap), or un-redacted logs containing target IPs/hostnames.
+**Türkçe:**  
+Bu çalışma, rapor sahibi tarafından belirtilen şekilde **yazılı akademik izin** ile gerçekleştirilmiştir. Repo, çalıştırılabilir saldırı betikleri, ham paket yakalama dosyaları (pcap/pcapng) veya açığa çıkarılmış hedef IP/hostname içeren ham loglar içermez. `docs/permission_statement.pdf` dosyası (varsa) izin belgesinin sanitaze edilmiş bir kopyasını içerir.  
+
+**English:**  
+This work was performed under written academic authorization. The repository intentionally excludes runnable attack scripts, raw packet captures (pcap/pcapng), and un-redacted logs containing target IPs/hostnames. If available, a sanitized copy of the permission statement is in `docs/permission_statement.pdf`.
 
 ---
 
 ## Neler bulunur / What's included
-- `docs/report_sanitized.pdf` — Anonymize edilmiş rapor (PDF). (Eğer PDF oluşturulmadıysa, `docs/report_sanitized.txt` bulunur.)  
-- `docs/graphs/` — Performans grafikleri (PNG/SVG) — hassas bilgiler anonimleştirilmiş.  
-- `lab/` — Docker-compose tabanlı lokal laboratuvar (webserver + load generator + monitor) ve kullanım talimatları.  
-- `examples/commands.md` — Kullanılan araçlara ait örnek komutlar (çalıştırılmaması uyarısıyla birlikte).  
-- `anonymize_report.py` — Raporu anonimleştirmek için kullanılan yardımcı script (metin çıkarımı + regex redaction).
+**Türkçe:**
+- `docs/report_sanitized.txt` veya `docs/report_sanitized.pdf` — anonimleştirilmiş rapor (metin veya PDF).  
+- `docs/report_sanitization_log.txt` — otomatik redaksiyon ile nelerin değiştirildiğine dair kayıt.  
+- `docs/graphs/` — ölçüm grafikleri (PNG/SVG) — hassas bilgiler anonimleştirilmiş.  
+- `lab/` — yalnızca **local** kullanım amaçlı, Docker Compose tabanlı örnek laboratuvar (ör. nginx + yük üreteci).  
+- `examples/commands.md` — araç kullanım örnekleri (sadece belgeleme amaçlı; çalıştırmayın).  
+- `anonymize_report.py` — raporu metin olarak çıkarmaya/regex ile redakte etmeye yarayan yardımcı script.
+
+**English:**
+- `docs/report_sanitized.txt` or `docs/report_sanitized.pdf` — sanitized report (text or PDF).  
+- `docs/report_sanitization_log.txt` — log of automated redactions.  
+- `docs/graphs/` — measurement graphs (PNG/SVG) with sensitive data anonymized.  
+- `lab/` — Docker Compose based example lab for **local-only** use (e.g., nginx + a load generator).  
+- `examples/commands.md` — example commands for tools (documentation only; do not run).  
+- `anonymize_report.py` — helper script to extract and redact text from the original report.
 
 ---
 
 ## Önemli — Yasal & Etik Uyarı / Important — Legal & Ethical Notice
-Bu materyaller sadece eğitim ve araştırma amaçlıdır. İçeriği izinsiz olarak gerçek sistemlere karşı kullanmak **yasadışıdır** ve ciddi hukuki sonuçlar doğurur. Herhangi bir sisteme karşı test yapmadan önce **yazılı** izin alınmalıdır.  
-These materials are for education and research only. Do NOT use them against real systems without explicit written permission.
+**Türkçe:**  
+Bu materyaller **sadece** eğitim ve araştırma amaçlıdır. İçeriği izinsiz olarak gerçek sistemlere karşı kullanmak **yasadışıdır** ve ciddi hukuki sonuçlar doğurabilir. Herhangi bir sisteme test uygulamadan önce **yazılı izin** alın. Repo içindeki örnek komutlar belgeleme amaçlıdır; bunları dış hedeflere karşı çalıştırmayın.  
+
+**English:**  
+These materials are for education and research only. Using the content against real systems without explicit permission is illegal and may have serious legal consequences. Always obtain written authorization before testing any system. Command examples in this repository are for documentation only — do not execute them against external targets.
 
 ---
 
 ## Nasıl güvenli şekilde tekrar üretirim? / How to reproduce safely (local only)
-1. `git clone` yap.  
-2. `cd lab` ve `docker-compose up -d` ile local lab'ı ayağa kaldır. Bu lab **sadece** localhost içinde çalışır. Dış IP'lere yönlendirmeyin.  
-3. `run-local.sh` betiğini yerelde çalıştırarak yük testi örneklerini görebilirsiniz.  
-4. Raporu yeniden oluşturmak/analiz etmek için `anonymize_report.py` kullanarak orijinal PDF'den anonimleştirilmiş metin çıktısı alın (aşağıdaki "Anonymize script" bölümüne bakın).
+**Türkçe (kısa adımlar):**
+1. Repo'yu klonlayın veya indirin.  
+2. `cd lab` → `docker compose up -d` (Docker Desktop veya Docker Engine ile). Bu lab **sadece localhost** içinde çalışır; dış IP'lere yönlendirmeyin.  
+3. `run-local.sh` içindeki örnekleri kullanarak yerelde kısa, kontrollü yük testleri çalıştırın.  
+4. Raporu yeniden üretmek veya kontrol etmek için `anonymize_report.py` ile orijinal PDF'den (veya metin dosyasından) anonimleştirilmiş metin çıktı alın.
+
+**English (short steps):**
+1. Clone or download the repository.  
+2. `cd lab` → `docker compose up -d` (using Docker Desktop or Docker Engine). The lab is **local-only**; do not point it at external IPs.  
+3. Use the examples in `run-local.sh` to run short, controlled local load tests.  
+4. Recreate the sanitized report using `anonymize_report.py` on the original PDF/text if needed.
 
 ---
 
-## Anonymize script (kısaca) / About the anonymize script
-`anonymize_report.py` şu adımları dener:
-- PyPDF2 veya benzeri yüklüyse PDF'den metin çıkarır, aksi halde salt metin dosyaları üzerinde çalışır.  
-- IPv4 adresleri, e-posta adresleri, MAC adresleri, yaygın hostnames/domaınları ve bazı IP-benzeri dizileri regex ile `<REDACTED_...>` şeklinde işaretler.  
-- Çıktı olarak `docs/report_sanitized.txt` ve `docs/report_sanitization_log.txt` üretir.  
-**Not:** Script görüntülerdeki (screenshot) yazıları veya gömülü resim içeriğini otomatik olarak redakte edemez — bunlar için manuel inceleme ve gerektiğinde görsel redaksiyon (ör. PDF editörü) gereklidir.  
-The script produces a sanitized text output and a log of replacements. It cannot redact text inside images/screenshots — manual review is required for those.
+## Anonymize script — Kısıtlar / About the anonymize script — Limitations
+**Türkçe:**  
+`anonymize_report.py` metin tabanlı çıkarım (PyPDF2) ve regex redaksiyon (IP, e-posta, MAC, basit host/domain) uygular. **Görsellerdeki (screenshot) yazılar otomatik temizlenmez**; ekran görüntülerinde hassas bilgi varsa bunları manuel olarak bulanıklaştırmalı/kapatmalısınız. Ayrıca OCR gerektiren taranmış PDF’ler için ek araçlar (Tesseract vb.) gerekebilir.
+
+**English:**  
+`anonymize_report.py` performs text extraction (PyPDF2) and regex-based redaction (IPs, emails, MACs, simple host/domains). It **does not** automatically redact text embedded in images/screenshots — you must manually blur or redact any sensitive content in images. Scanned PDFs requiring OCR will need additional tools (Tesseract, etc.).
 
 ---
 
-## License / Lisans
-Akademik ve non-commercial kullanım için `CC BY-NC-ND 4.0` önerilir. (Tercihinize göre farklı bir lisans seçebilirsiniz.)
+## Hangi dosyaları kesinlikle eklemeyin / Files you MUST NOT include
+**Türkçe:**  
+- Ham pcap/pcapng/tcpdump dosyaları.  
+- Çalıştırılabilir saldırı scriptleri veya otomatik flood betikleri.  
+- Ham loglar veya hedef IP/hostname içeren ham veri dosyaları (anonimize edilmemiş).  
+
+**English:**  
+- Raw pcap/pcapng/tcpdump files.  
+- Runnable attack scripts or automated flood scripts.  
+- Raw logs or data files containing un-redacted target IPs/hostnames.
+
+---
+
+## Lisans / License
+**Türkçe:**  
+Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0) önerilir. Akademik ve eğitim amaçlı kullanım için uygundur.  
+
+**English:**  
+Recommended license: Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0). Suitable for academic and educational use.
+
+---
+
+## Kaynakça / References
+**Türkçe:** Orijinal rapordaki referanslar raporda korunmuştur; raporu incelerken ilgili literatüre başvurunuz.  
+**English:** References listed in the original report are preserved; consult them for deeper technical background.
 
 ---
 
 ## İletişim / Contact
-Herhangi bir soru için GitHub Issues kullanın veya repo sahibiyle iletişime geçin.
+**Türkçe:** Herhangi bir soru için GitHub Issues kullanabilirsiniz veya repo sahibi ile iletişime geçin.  
+**English:** For questions, open a GitHub Issue or contact the repository owner.
 
 ---
