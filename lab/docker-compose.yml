@@ -1,11 +1,19 @@
 version: "3.8"
+
 services:
   web:
     image: nginx:1.22
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"   # <-- localhost-only binding (güvenli)
     volumes:
       - ./web-content:/usr/share/nginx/html:ro
+
   client:
     image: alpine
     entrypoint: ["/bin/sh","-c","sleep infinity"]
+    networks:
+      - synlab_net
+
+networks:
+  synlab_net:
+    driver: bridge
