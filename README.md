@@ -5,6 +5,7 @@
 
 ## TL;DR (TR/ENG)
 **TR:** Bu repo, yetkilendirilmiş bir akademik çalışma kapsamında gerçekleştirilen SYN Flooding deneyinin anonimleştirilmiş raporunu, ölçüm grafiklerini ve güvenli bir şekilde yerelde tekrar üretilebilecek bir laboratuvar kurulumunu içerir.  
+
 **ENG:** This repository contains a sanitized report of an authorized academic SYN Flooding experiment, measurement graphs, and a reproducible local lab setup for safe educational use.
 
 ---
