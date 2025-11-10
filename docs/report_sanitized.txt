@@ -1,0 +1,697 @@
+--- PAGE 1 ---\nCUKUROV A UNIVERSITY COMPUTER ENGINEERING DEPARTMENT
+SYN-FLOODING ATTACK METHODOLOGY
+BY
+Huseyin Can YILMAZ
+CONTENT
+Abstract
+1.Introduction
+2.Attack Description 
+2.1. History
+2.2. Theory of Operation
+3.Project Scope and Ethical Consideration
+4.Components and Tools
+            4.1. Target System
+            4.2. Attack Platform
+            4.3. Tool Used
+5.Pre-Attack Network Performance
+5.1. Httperf
+5.2. ApacheBench
+5.3. Siege
+6.Syn-Flooding Attack & During Attack Performance Testing
+6.1. Hping3 Syn-Flooding Attack
+6.2. Nping Syn-Flooding Attack
+7.Conclusion & Discussion
+References
+03.06.2025\n\n--- PAGE 2 ---\nAbstract
+This project investigates the performance degradation of a web server under a SYN 
+Flooding attack, with the target being the official website of the Department of Computer 
+Engineering at Cukurova University ( <REDACTED_HOSTNAME_SPECIFIC>). Preliminary scanning with nmap revealed that 
+only ports 80 (HTTP) and 443 (HTTPS) were open on the server, both of which became direct 
+targets during the simulated attack. The attack phase was carried out using hping3 and nping, which 
+were used to craft and send a large number of TCP SYN packets to the open ports, aiming to 
+exhaust server resources.
+To assess the impact of the attack on the system’s performance, we initially intended to use 
+iperf3 and pathrate; however, due to insufficient privileges on the target server, these tools were 
+replaced with client-only alternatives: ApacheBench, Siege, and httperf. These tools were used to 
+measure key metrics such as request rate, latency, response time, and error rate before and during 
+the attack. Additionally, tcpdump was utilized to capture and analyze packet-level data for verifying  
+SYN traffic volume and packet loss.
+The results indicate a significant decrease in server responsiveness and a dramatic increase 
+in packet loss during the attack, confirming the effectiveness of SYN Flooding in degrading web 
+service availability. This project highlights the importance of proactive defense mechanisms against 
+Denial-of-Service attacks on publicly accessible systems.
+1. Introduction
+In today's digital landscape, web servers serve as critical infrastructure for delivering 
+services and information to users worldwide. Ensuring the performance and resilience of these 
+systems under both normal and adverse conditions is vital for maintaining service availability and 
+user satisfaction. This project aims to evaluate the performance and robustness of the Computer 
+Engineering Department's public website, hosted at <REDACTED_HOSTNAME_SPECIFIC>, by applying both benchmarking  
+and stress-testing methodologies.
+Initially, tools such as httperf, iperf3, and pathrate were selected for measuring 
+throughput, latency, and bandwidth characteristics. However, due to limited access and 
+insufficient privileges on the remote server , alternatives such as ApacheBench (ab)  and Siege 
+were utilized to simulate realistic HTTP traffic under controlled load conditions. These tools 
+enabled detailed observation of the web server’s behavior under increasing client connection rates 
+and request volumes.
+To assess how the system responds under attack scenarios, SYN Flooding was carried out as 
+a form of Denial-of-Service (DoS) simulation. Tools like hping3 and nping were employed to 
+generate large volumes of SYN packets targeting the web server’s open HTTP (port 80) and 
+HTTPS (port 443)  services. Packet-level behavior during the tests was monitored and verified 
+using tcpdump, allowing the detection of packet loss, response times, and signs of service 
+degradation.
+Additionally, nmap was used for preliminary reconnaissance to identify open ports and 
+potential exposure points on the server. The scan revealed that only ports 80 and 443 were open to 
+the public, focusing the scope of the testing activities on the web service components of the system.
+1\n\n--- PAGE 3 ---\nBy combining load testing and offensive security techniques, this project not only evaluates 
+the server’s baseline performance but also demonstrates its vulnerability to basic DoS tactics. The 
+results highlight the importance of proactive system hardening and monitoring, especially for 
+publicly accessible academic infrastructures.
+2. Attack Description
+This section describes both the history and the technical basis of the SYN flooding attack.
+2.1. History
+The TCP SYN flooding weakness was discovered as early as 1994 by Bill Cheswick and 
+Steve Bellovin [B96]. They included, and then removed, a paragraph on the attack in their book 
+"Firewalls and Internet Security: Repelling the Wily Hacker" [CB94]. Unfortunately, no 
+countermeasures were developed within the next two years. [1]
+The SYN flooding attack was first publicized in 1996, with the release of a description and 
+exploit tool in Phrack Magazine [P48-13]. Aside from some minor inaccuracies, this article is of 
+high enough quality to be useful, and code from the article was widely distributed and used. [2]
+By September of 1996, SYN flooding attacks had been observed in the wild. Particularly, an  
+attack against one ISP's mail servers caused well-publicized outages. CERT quickly released an 
+advisory on the attack [CA-96.21]. SYN flooding was particularly serious in comparison to other 
+known denial-of-service attacks at the time. Rather than relying on the common brute-force tactic of  
+simply exhausting the network's resources, SYN flooding targets end-host resources, which require 
+fewer packets to deplete. [3]
+The community quickly developed many widely differing techniques for preventing or 
+limiting the impact of SYN flooding attacks. Many of these have been deployed to varying degrees 
+on the Internet, in both end hosts and intervening routers. Some of these techniques have become 
+important pieces of the TCP implementations in certain operating systems, although some 
+significantly diverge from the TCP specification and none of these techniques have yet been 
+standardized or sanctioned by the IETF process. [4]
+2.2. Theory of Operation
+As described in RFC 793, a TCP implementation may allow the LISTEN state to be entered 
+with either all, some, or none of the pair of IP addresses and port numbers specified by the 
+application. In many common applications like web servers, none of the remote host's information 
+is pre-known or preconfigured, so that a connection can be established with any client whose details  
+are unknown to the server ahead of time. This type of "unbound" LISTEN is the target of SYN 
+flooding attacks due to the way it is typically implemented by operating systems. [5]
+For success, the SYN flooding attack relies on the victim host TCP implementation's 
+behavior. In particular, it assumes that the victim allocates state for every TCP SYN segment when 
+it is received, and that there is a limit on the amount of such state than can be kept at any time. The 
+current base TCP specification, RFC 793 [RFC0793], describes the standard processing of 
+incoming SYN segments. RFC 793 describes the concept of a Transmission Control Block (TCB) 
+2\n\n--- PAGE 4 ---\ndata structure to store all the state information for an individual connection. In practice, operating 
+systems may implement this concept rather differently, but the key is that each TCP connection 
+requires some memory space. [6]
+Per RFC 793, when a SYN is received for a local TCP port where a connection is in the 
+LISTEN state, then the state transitions to SYN-RECEIVED, and some of the TCB is initialized 
+with information from the header fields of the received SYN segment. In practice, many operating 
+systems do not alter the TCB in LISTEN, but instead make a copy of the TCB and perform the state  
+transition and update on the copy. This is done so that the local TCP port may be shared amongst 
+several distinct connections. This TCB-copying behavior is not actually essential for this purpose, 
+but influences the way in which applications that wish to handle multiple simultaneous connections 
+through a single TCP port are written. The crucial result of this behavior is that, instead of updating 
+already-allocated memory, new (or unused) memory must be devoted to the copied TCB. [7]
+As an example, in the Linux 2.6.10 networking code, a "sock" structure is used to implement  
+the TCB concept. By examination, this structure takes over 1300 bytes to store in memory. In other 
+systems that implement less-complex TCP algorithms and options, the overhead may be less, 
+although it typically exceeds 280 bytes [SKK+97]. [8]
+To protect host memory from being exhausted by connection requests, the number of TCB 
+structures that can be resident at any time is usually limited by operating system kernels. Systems 
+vary on whether limits are globally applied or local to a particular port number. There is also 
+variation on whether the limits apply to fully established connections as well as those in SYN-
+RECEIVED. Commonly, systems implement a parameter to the typical listen() system call that 
+allows the application to suggest a value for this limit, called the backlog. When the backlog limit is  
+reached, then either incoming SYN segments are ignored, or uncompleted connections in the 
+backlog are replaced. The concept of using a backlog is not described in the standards documents, 
+so the failure behavior when the backlog is reached might differ between stacks (for instance, TCP 
+RSTs might be generated). The exact failure behavior will determine whether initiating hosts 
+continue to retransmit SYN segments over time, or quickly cease. These differences in 
+implementation are acceptable since they only affect the behavior of the local stack when its 
+resources are constrained, and do not cause interoperability problems. [9]
+The SYN flooding attack does not attempt to overload the network's resources or the end 
+host's memory, but merely attempts to exhaust the backlog of half-open connections associated with  
+a port number. The goal is to send a quick barrage of SYN segments from IP addresses (often 
+spoofed) that will not generate replies to the SYN-ACKs that are produced. By keeping the backlog 
+full of bogus half-opened connections, legitimate requests will be rejected. Three important attack 
+parameters for success are the size of the barrage, the frequency with which barrages are generated, 
+and the means of selecting IP addresses to spoof. [10]
+A. Barrage Size
+To be effective, the size of the barrage must be made large enough to reach the backlog. 
+Ideally, the barrage size is no larger than the backlog, minimizing the volume of traffic the attacker 
+must source. Typical default backlog values vary from a half-dozen to several dozen, so the attack 
+might be tailored to the particular value determined by the victim host and application. On machines  
+3\n\n--- PAGE 5 ---\nintended to be servers, especially for a high volume of traffic, the backlogs are often 
+administratively configured to higher values.  [11]
+B. Barrage Frequency
+To limit the lifetime of half-opened connection state, TCP implementations commonly 
+reclaim memory from half-opened connections if they do not become fully opened after some time 
+period. For instance, a timer of 75 seconds [SKK+97] might be set when the first SYN-ACK is sent,  
+and on expiration cause SYN-ACK retransmissions to cease and the TCB to be released. The TCP 
+specifications do not include this behavior of giving up on connection establishment after an 
+arbitrary time. Some purists have expressed that the TCP implementation should continue 
+retransmitting SYN and SYN-ACK segments without artificial bounds (but with exponential 
+backoff to some conservative rate) until the application gives up. Despite this, common operating 
+systems today do implement some artificial limit on half-open TCB lifetime. For instance, backing 
+off and stopping after a total of 511 seconds can be observed in 4.4 BSD-Lite [Ste95], and is still 
+practiced in some operating systems derived from this code. [12]
+To remain effective, a SYN flooding attack needs to send new barrages of bogus connection 
+requests as soon as the TCBs from the previous barrage begin to be reclaimed. The frequency of 
+barrages are tailored to the victim TCP implementation's TCB reclamation timer. Frequencies 
+higher than needed source more packets, potentially drawing more attention, and frequencies that 
+are too low will allow windows of time where legitimate connections can be established. [13]
+C. IP Address Selection
+For an effective attack, it is important that the spoofed IP addresses be unresponsive to the 
+SYN-ACK segments that the victim will generate. If addresses of normal connected hosts are used, 
+then those hosts will send the victim a TCP reset segment that will immediately free the 
+corresponding TCB and allow room in the backlog for legitimate connections to be made. The code 
+distributed in the original Phrack article used a single source address for all spoofed SYN segments.  
+This makes the attack segments somewhat easier to identify and filter. A strong attacker will have a 
+list of unresponsive and unrelated addresses that it chooses spoofed source addresses from.  [14]
+It is important to note that this attack is directed at particular listening applications on a host,  
+and not the host itself or the network. The attack also attempts to prevent only the establishment of 
+new incoming connections to the victim port, and does not impact outgoing connection requests, 
+nor previously established connections to the victim port. [15]
+In practice, an attacker might choose not to use spoofed IP addresses, but instead to use a 
+multitude of hosts to initiate a SYN flooding attack. For instance, a collection of compromised hosts  
+under the attacker's control (i.e., a "botnet") could be used. In this case, each host utilized in the 
+attack would have to suppress its operating system's native response to the SYN-ACKs coming 
+from the target. It is also possible for the attack TCP segments to arrive in a more continuous 
+fashion than the "barrage" terminology used here suggests; as long as the rate of new SYNs exceeds  
+the rate at which TCBs are reaped, the attack will be successful.  [16]
+4\n\n--- PAGE 6 ---\n3. Project Scope and Ethical Consideration
+This project aims to evaluate the resilience of the Computer Engineering Department's 
+website, specifically hosted at <REDACTED_HOSTNAME_SPECIFIC> or ceng.<REDACTED_DOMAIN_SPECIFIC>, against SYN flooding attacks. The 
+attack simulations were carried out using nping and hping3 tools to generate SYN packets. To 
+measure the impact of these attacks on server performance, three analysis tools— httperf, iperf, and 
+pathrate—were initially assigned by the supervising academician, Doç. Dr. Fatih Abut . However, 
+since both iperf and pathrate require simultaneous execution on both the sender and the target 
+server, and due to the fact that the target server was not under administrative control, it was not 
+feasible to use these tools in this specific context. Instead, alternative tools such as ApacheBench 
+(ab) and Siege were employed to perform equivalent performance measurements. These tools 
+provided sufficient insight into the server's responsiveness and behavior under attack conditions. 
+The scope of the project was strictly limited to SYN flooding attacks ; other forms of DoS or DDoS  
+attacks—such as UDP flood or HTTP flood—were explicitly excluded. Additionally, tcpdump was 
+used to monitor and capture network traffic during the attack scenarios, allowing for detailed 
+inspection of the SYN packet flow and server responses. All necessary permissions were obtained 
+from Doç. Dr. Fatih Abut , and the entire project was conducted within a controlled and ethical 
+framework under his supervision.
+This project was conducted with full ethical responsibility and transparency. All necessary 
+permissions and approvals were obtained by the project supervisor, Doç. Dr. Fatih Abut , prior to 
+the execution of any testing activities. Throughout the entire process, no harm was inflicted on the 
+targeted website, and the integrity or confidentiality of any data hosted on the site was neither 
+compromised nor violated. The attacks were carried out solely for academic and research purposes, 
+within the ethical boundaries defined by the supervising academic. To ensure transparency and 
+accountability, the project’s progress was reviewed weekly in coordination with Doç. Dr. Fatih 
+Abut. During these reviews, the ongoing work was assessed, improvements were suggested, and 
+necessary adjustments were made. Each week's work and developments were documented in 
+regular progress reports, which were shared directly with the supervisor. These measures ensured 
+that the project remained ethically sound and aligned with academic standards at all times.
+4. Components and Tools
+4.1. Target System
+The target of the experiment was the Computer Engineering Department's website, hosted at  
+<REDACTED_HOSTNAME_SPECIFIC> or ceng.<REDACTED_DOMAIN_SPECIFIC>. Since the server was not administratively controlled by the 
+researcher, no changes or configurations could be applied on the server-side. The site was only 
+accessed as a black-box target, and care was taken to ensure that neither data confidentiality nor 
+service availability was compromised. The attacks were performed in a controlled, authorized 
+manner with prior consent from the responsible academic.
+4.2. Attack Platform
+The SYN flooding attacks were carried out from a laptop running Ubuntu, connected to the 
+internet via Wi-Fi. The attacking machine was configured with appropriate privileges to generate 
+5\n\n--- PAGE 7 ---\nand send custom network packets. Packet generation and manipulation were conducted within the 
+bounds of the test environment, and the attack traffic was monitored locally. The attacker device 
+also ran traffic capture and load simulation tools to analyze the impact of the SYN floods on the 
+target server.
+4.3. Tools Used
+Several network tools were utilized throughout the project to simulate attacks and monitor 
+server behavior. nping and hping3 were used to generate SYN flooding traffic with custom packet 
+flags. To identify open ports and potential attack vectors, nmap was used for port scanning. For 
+performance testing, although iperf and pathrate were initially planned, the inability to run these 
+tools on both the client and server side led to their replacement. Instead, ApacheBench (ab)  and 
+siege were used to evaluate how the server handled HTTP load under stress. Additionally, tcpdump 
+was used to capture and analyze network traffic at the packet level during the attacks.
+5. Pre-Attack Network Performance
+5.1. Httperf
+Performance testing was conducted using the httperf tool to evaluate the web server hosted 
+at IP address <REDACTED_IP_SPECIFIC>. Tests were carried out on both HTTP (port 80) and HTTPS (port 443) 
+services under varying connection loads and request rates.
+A. HTTPS Basic Test (Port 443)
+In the first test, a total of 100 connections were established with a rate of 10 connections per 
+second and a timeout of 5 seconds. The server successfully responded to all requests with HTTP 
+2xx status codes, indicating full availability and no errors under light load. The average connection 
+time was approximately 524.8 ms, with a response time of 322.8 ms. The test showed that the 
+HTTPS service handles basic traffic efficiently and without issues.
+B. HTTPS Stress Test (Port 443)
+A second test was performed with a higher load: 1000 connections at a rate of 50 
+connections per second. The test duration was approximately 37.7 seconds. The server was able to 
+respond to all connections, but 35 of the responses were HTTP 5xx errors, indicating internal server  
+issues under pressure. The average connection and response times increased to around 10 seconds, 
+demonstrating that server performance degrades under heavier traffic, with noticeable delays and 
+occasional failures.
+C. Concurrent HTTPS Requests (Port 443)
+This test simulated concurrency using bursts of requests. A total of 200 connections were 
+made, each issuing 5 HTTP requests with a burst length of 10. Although 1000 total HTTP requests 
+were issued, only 274 responses were received. 196 requests timed out. While the responses that 
+were received were successful (all 2xx), the high number of timeouts suggests the server struggled 
+to handle simultaneous requests, likely due to limited processing or network resources.
+6\n\n--- PAGE 8 ---\nD. Basic HTTP Test (Port 80)
+The HTTP test on port 80 involved 100 connections at a rate of 10 per second. Although all 
+connections were established, only 20% of the responses returned a 2xx success status code, while 
+the remaining 80% were 5xx errors. This indicates that the HTTP service encountered significant 
+issues even under light traffic conditions, possibly due to misconfiguration or instability in the 
+HTTP service.
+E. High-Load HTTP Test (Port 80)
+A more intensive test with 2000 HTTP connections at a rate of 200 per second further 
+confirmed the instability of the HTTP service. While all connections were established, only 1% of 
+the responses were successful (2xx), and 99% were server errors (5xx). This indicates that the 
+HTTP service failed almost completely under high load, with the server being unable to process the 
+incoming traffic correctly.
+F. Overall Assessment of Httperf Results
+The HTTPS service on port 443 demonstrated relatively stable performance under low to 
+moderate loads, although some degradation occurred under stress. In contrast, the HTTP service on 
+port 80 returned a high number of 5xx errors, even under minimal traffic, indicating a serious 
+performance or configuration issue. Concurrent request handling over HTTPS also led to significant  
+timeouts, revealing limitations in handling simultaneous connections. Overall, HTTPS is the more 
+reliable protocol on this server, while HTTP requires further investigation and optimization.
+Test ScenarioPortConnectionsRate(req/s)Success
+(2xx)Errors
+(5xx)Avg 
+Conn.Time 
+(ms)Avg Resp. 
+Time(ms)Avg CPU
+Usage
+Basic Test
+(HTTPS)4431009.61000524.8322.8User:
+36.1%,
+System:
+63.9%
+More Stress
+(HTTPS)443100026.59653510449.310177.3User:
+5.7%,
+System:
+94.3%
+Concurrency
+Simulation
+(HTTPS, 
+burst
+mode)44320057.927405551.33680.7User:
+13.2%,
+System:
+86.8%
+Basic Test
+(HTTP)8010010.0208069.335.1User:
+46.0%,
+System:
+54.0%
+Heavy Load
+(HTTP)802000198.820198070.636.3User:
+26.5%,
+System:
+ 73.2%
+Table 1, Httperf’s Metrics Result
+7\n\n--- PAGE 9 ---\n5.2. ApacheBench
+A. HTTPS Benchmark – Low Load (500 requests, 10 concurrency)
+In the low-traffic HTTPS test (ab -n 500 -c 10), 500 requests were sent to an nginx/1.18.0 
+server over TLS 1.3. Out of these, 249 requests failed due to content length mismatches, possibly 
+indicating server response issues under concurrency.
+The test lasted about 52.76 seconds, with an average of 9.48 requests per second. Average 
+request time was 1055 ms (105.5 ms per concurrent request), and transfer rate was 469.73 KB/s. 
+Connection time averaged 82 ms, processing time 956 ms, and total request time 1038 ms, with a 
+max of 2433 ms.
+Half the requests completed within 1044 ms, and 95% within 1592 ms, showing relatively 
+stable latency despite the failures, which suggest potential performance or configuration problems 
+to investigate.
+B. HTTP Benchmark – Low Load (500 requests, 50 concurrency)
+An HTTP benchmark test was conducted using ApacheBench ( ab -n 500 -c 50 
+http://<REDACTED_IP_SPECIFIC>/ ) to evaluate server performance under moderate concurrency. The test 
+completed 500 requests in approximately 1.29 seconds. However, 488 of those requests failed due 
+to content length mismatches, and only 12 were successful 2xx responses. The server, running 
+nginx/1.18.0 on port 80, responded with an average of 388.16 requests per second , with a mean 
+time of 128.8 ms per request . Despite the high throughput, the failure rate (97.6%) indicates a 
+significant reliability issue, possibly due to incorrect content size verification or resource limitations  
+under concurrent load.
+C. HTTPS Benchmark – High Load (2000 requests, 200 concurrency)
+A secure load test was executed using HTTPS on port 443 ( ab -n 2000 -c 200 
+https://<REDACTED_IP_SPECIFIC>/ ). The test utilized TLSv1.3 with AES_256_GCM_SHA384  encryption and 
+X25519 key exchange. Although the test completed all 2000 requests, 1512 requests failed  due to 
+content length mismatches. The test ran for about 76.3 seconds, achieving a throughput of 26.22 
+requests per second . The median time per request was 7.4 seconds, with the slowest request taking  
+up to 9.5 seconds. These results suggest significant overhead introduced by HTTPS, combined with  
+server performance degradation under high concurrency.
+D. HTTP Benchmark – High Load (2000 requests, 200 concurrency)
+Under increased HTTP traffic ( ab -n 2000 -c 200 http://<REDACTED_IP_SPECIFIC>/ ), the server showed 
+substantial instability. Out of 2000 requests, 1982 failed, resulting in only 18 successful 2xx 
+responses. The benchmark completed in just over 7.2 seconds, achieving a mean request rate of 
+276.29 requests per second . However, the failure rate was over 99%, mainly due to incorrect 
+content length, and some requests experienced response times of up to 2.4 seconds. These findings 
+indicate the server struggled to handle high concurrent traffic, possibly due to resource bottlenecks 
+or misconfigured content handling.
+8\n\n--- PAGE 10 ---\nE. Overall Assessment of ApacheBench Results
+The ApacheBench tests on the server <REDACTED_IP_SPECIFIC> showed significant performance and 
+reliability issues under both HTTP and HTTPS traffic. While the server handled low concurrency 
+reasonably well in terms of speed, a large number of requests failed due to content-length 
+mismatches. Under higher traffic loads, failure rates increased dramatically, especially with HTTPS,  
+where average response times reached up to 8 seconds per request. Throughput decreased as 
+concurrency rose, and response times varied widely, indicating server strain and possible 
+misconfiguration. Overall, the results suggest that the server struggles to maintain stable 
+performance under stress, particularly for secure connections. Addressing configuration errors and 
+optimizing concurrency handling are essential to improve reliability and scalability.
+Test 
+TypencFailedAvg 
+Req
+Time 
+(ms)RPSTransfer
+(KB/s)Avg 
+Conn
+(ms)Avg
+Proc(ms)Max 
+Time
+(ms)
+HTTP 
+Low50050488128.8388.16150.945153453
+HTTPS 
+Low500102491055.19.48469.73829562433
+HTTP 
+High20002001982723.9276.29105.554801442442
+HTTPS 
+High200020015127628.926.221299.369970389487
+Table 2, ApacheBench’s Metrics Result
+5.3. Siege
+A. Basic HTTP Test (Port 80)
+The basic HTTP test on port 80 with 10 concurrent users and 50 repetitions showed very low  
+availability of 2.8%. Out of the total requests, 486 failed, indicating significant instability. The 
+average response time was 2.42 seconds, which is relatively slow for a basic load test. These results 
+suggest that the server has considerable performance issues when handling HTTP traffic on port 80 
+even under light load.
+B. Basic HTTPS Test (Port 443)
+The basic HTTPS test on port 443 using the same concurrency and repetitions achieved 
+100% availability with no failed transactions. The server handled 5000 hits with an average 
+response time of 0.23 seconds, demonstrating solid and reliable performance for HTTPS 
+connections under low load conditions.
+9\n\n--- PAGE 11 ---\nC. HTTP Load Test (Port 80)
+The HTTP load test on port 80, conducted with 50 concurrent users for one minute, was 
+aborted prematurely due to excessive socket failures. Only 10 transactions were successful out of 
+over 1000 attempts, resulting in availability below 1%. The response time increased dramatically to 
+17.8 seconds, indicating the server was overwhelmed and unable to handle sustained heavy HTTP 
+traffic.
+D. HTTPS Load Test (Port 443)
+The HTTPS load test on port 443 with the same settings completed successfully without 
+failures. The server processed 7159 transactions with 100% availability, an average response time of  
+0.41 seconds, and a throughput of 6.48 MB/sec. This indicates robust capacity to sustain heavy 
+traffic on HTTPS without degradation in performance.
+E. Overall Assessment of Siege Results
+The performance testing clearly highlights a stark contrast between the server’s handling of 
+HTTP and HTTPS traffic. While HTTPS services on port 443 consistently demonstrate high 
+availability, fast response times, and stability even under stress, HTTP services on port 80 show 
+poor availability, high failure rates, and long response times. This disparity suggests that HTTPS is 
+well-optimized and configured on the server, whereas HTTP may require significant attention 
+regarding resource allocation, server tuning, or underlying network conditions to improve reliability  
+and performance.
+TestPortConcTransAvail 
+%Time 
+(s)Data 
+MBResp 
+(s)Rate
+(tps)SuccessFail
+Basic 
+HTTP8010142.83.420.102.424.0914486
+Basic 
+HTTPS443105000100116.9271.820.2342.7750000
+HTTP 
+Load8050100.923.580.2117.82.79101073
+HTTPS 
+Load44350715910059.47385.340.41120.3871590
+Table 3, Siege’s Metrics Result
+10\n\n--- PAGE 12 ---\n6. Syn-Flooding Attack & During Attack Performance Testing
+6.1.1.  SYN Flood Attack Using hping3(Port 80)
+In this project, a SYN Flood attack was performed against the target server (IP: 
+<REDACTED_IP_SPECIFIC>) using the hping3 tool. The attack simulated a Denial of Service (DoS) scenario by 
+sending an extremely high volume of TCP SYN packets to the server’s port 80. A total of 1,182,565  
+packets were transmitted without receiving any response, indicating a 100% packet loss. This 
+demonstrates that the server was overwhelmed by the incoming traffic and was unable to respond to  
+legitimate connection attempts. Packet captures via tcpdump and system logs (dmesg) confirmed 
+that over a million packets were received and many were dropped due to network congestion. The 
+purpose of this attack was to evaluate how the server behaves under SYN flooding and to analyze 
+the resulting impact on its performance and availability.
+A. HTTPerf Test Results Evaluation
+During the SYN Flood attack, the httperf tool was used to measure the server’s ability to 
+handle HTTP traffic. The test aimed to make 500 connections at a rate of 50 connections per 
+second. However, only 275 requests were issued, and 272 replies were received. The total test 
+duration extended to approximately 270 seconds, which reflects severe delays. The average 
+connection time was recorded as 12.58 seconds, with a maximum delay reaching up to 36.65 
+seconds. Most significantly, the server returned only 37 HTTP 2xx success responses, while 235 
+requests resulted in HTTP 5xx server-side errors. Additionally, 225 socket timeout errors occurred. 
+These results show that the SYN Flood attack significantly disrupted the server’s ability to handle 
+HTTP requests efficiently.
+B. ApacheBench Test Results Evaluation
+The ApacheBench ( ab) test was conducted with 1000 requests and 50 concurrent 
+connections. However, the test failed with the error: “apr_pollset_poll: The timeout specified has 
+expired (70007).” This error indicates that the server could not respond in time to the incoming 
+connections, likely due to the saturation caused by the SYN Flood attack. ApacheBench is designed 
+to evaluate how well a web server performs under load, and its complete failure in this scenario 
+highlights the extent of the disruption caused by the attack. It is evident that the attack exhausted 
+server resources, making it incapable of handling even a basic benchmark test.
+C. Siege Test Results Evaluation
+The siege tool was used to simulate 50 concurrent users sending requests to the target server 
+for 1 minute. The results showed a mix of HTTP 200 OK and HTTP 503 Service Unavailable 
+responses. Numerous connection timeouts occurred, with some requests taking over 19 seconds to 
+complete. While some requests did receive successful responses, the majority experienced 
+unacceptable delays or failed altogether. The high number of timeouts and 503 errors reflect the 
+11\n\n--- PAGE 13 ---\nserver’s inability to maintain availability under heavy SYN Flood traffic. This test reinforces the 
+conclusion that the attack had a major negative impact on the server's capacity to serve users 
+reliably.
+D. Overall Assessment of hping3 SYN Flooding Attack Results
+The SYN Flood attack using hping3 had a significant negative impact on the target server’s 
+performance and availability. The attack generated over 1.1 million SYN packets, leading to total 
+communication breakdown, as evidenced by the 100% packet loss. Packet capture and system logs 
+confirmed that the server was receiving and dropping large volumes of traffic. Subsequent testing 
+with performance benchmarking tools ( httperf, ab, and siege) showed increased latency, a high 
+number of server errors (HTTP 5xx/503), and repeated timeouts. ApacheBench failed entirely, and 
+siege showed less than 34% availability. These results clearly demonstrate the server’s vulnerability  
+to SYN Flood attacks and underscore the importance of implementing effective mitigation 
+strategies such as SYN cookies, connection rate limiting, and robust firewall rules. Without such 
+defenses, even a moderate SYN flood can render the server completely unresponsive to legitimate 
+users. [17]
+6.1.2. SYN Flood Attack Using hping3(Port 443)
+The SYN flooding attack conducted using hping3 targeted port 443 of the server at IP 
+address <REDACTED_IP_SPECIFIC>. The attack employed a flood of TCP SYN packets using the --flood 
+parameter to generate a high volume of requests per second, overwhelming the server's capacity to 
+handle incoming connection attempts. This type of Denial of Service (DoS) attack exploits the TCP 
+three-way handshake mechanism by sending numerous SYN packets without completing the 
+handshake. The server allocates resources to each half-open connection, eventually leading to 
+resource exhaustion. The goal was to degrade or disable HTTPS services by overwhelming the 
+server’s TCP backlog queue.
+A. Httperf Performance Test
+The httperf tool was used to evaluate the server’s responsiveness during the SYN flood. It 
+attempted 500 connections at a rate of 50 per second. The results showed a drastically low 
+connection rate of only 3.3 connections per second, with a significant average connection time of 
+137 ms and a maximum of over 1600 ms. More critically, none of the responses returned a 2xx 
+status; instead, 495 out of 498 replies were 4xx errors, showing the server was unable to serve the 
+requested resources properly. The CPU utilization was also maxed out, with nearly 100% combined 
+user and system time, indicating that the server was overwhelmed. These metrics reflect the severe 
+impact of the SYN flooding attack on the server’s ability to handle legitimate HTTPS requests.
+B. ApacheBench (ab) Performance Test
+ApacheBench was used to simulate 100 HTTPS requests with a concurrency level of 10. 
+The test revealed that 68 of the 100 requests failed, all due to response length errors, which 
+typically indicate incomplete or malformed replies caused by server instability. The average time 
+12\n\n--- PAGE 14 ---\nper request was high at 1796 ms, and the longest request took over 3300 ms to complete. These 
+figures suggest that the server was significantly delayed in processing requests, likely due to the 
+large number of half-open TCP connections created by the SYN flood. Additionally, the high 
+variability in connection and processing times further confirms the instability of the HTTPS service 
+during the attack.
+C. Siege Performance Test
+Using Siege, a more realistic stress test was conducted with 50 concurrent users over a one-
+minute duration. The results showed 2,642 successful transactions with only 9 failures, suggesting 
+that under specific conditions the server still managed to respond to a portion of requests. However, 
+the average response time was high at 0.93 seconds, and the longest response took over 6 seconds. 
+The throughput was limited to 2.37 MB/sec, and the average concurrency level hovered around 41. 
+These results imply that while some level of availability was maintained, performance was severely 
+degraded and the user experience would have been notably poor under actual usage scenarios.
+D. Overall Assessment of hping3 SYN Flooding Attack Results
+The hping3 SYN flood attack significantly impaired the server's ability to deliver reliable 
+and timely HTTPS services on port 443. Across all three performance testing tools— httperf, 
+ApacheBench, and Siege—a consistent pattern of high response times, increased failure rates, and 
+drastically reduced throughput was observed. The tcpdump results confirmed the delivery of the 
+attack traffic and the kernel’s inability to process all incoming packets efficiently. While the server 
+did not go entirely offline, its performance was degraded to the point where meaningful 
+communication was nearly impossible. These findings emphasize the effectiveness of SYN flooding  
+attacks in disrupting web services and underscore the critical need for SYN flood mitigation 
+strategies such as SYN cookies, rate limiting, or stateful firewalls.  [18]
+Tool PortRequest Fail Notes
+Httperf 80 500225High latency/errors
+ApacheBench 80 1000TimeoutServer no response 
+Siege 80 775133% availability 
+Httperf 443 5002Moderate speed/errors
+ApacheBench 443 10068Low performance
+Siege 443 2642 999.66% availability 
+Table 4, Hping3 Syn-Flooding Attack Network Performance Results
+6.2. SYN Flood Attack Using Nping(Port 80)
+The SYN flooding attack was performed using the nping tool to evaluate how the target 
+server (IP: <REDACTED_IP_SPECIFIC>) handled a high volume of TCP SYN packets on port 80. The command 
+used sent 100,000 SYN packets at a rate of 1,000 packets per second. The test revealed that while 
+100,000 packets were transmitted, only 9,938 received any form of response, with a packet loss rate  
+of 90.06%. This high loss rate indicates that the server either silently dropped the majority of 
+incoming SYN requests or responded minimally, suggesting the possible presence of SYN flood 
+13\n\n--- PAGE 15 ---\nmitigation mechanisms such as SYN cookies or rate limiting. The round-trip time (RTT) was very 
+low, with an average of only 0.014 ms, confirming that the few successful responses occurred 
+quickly. Overall, the server was clearly under pressure and rejected most connection attempts.  [19]
+A. Httperf Performance Test
+The httperf tool was employed to simulate 500 HTTP connections at a steady rate of 50 
+requests per second. All connections were successfully initiated; however, the results revealed that 
+only 19 requests received a successful 2xx HTTP response. The vast majority, 481 requests, resulted  
+in 5xx server errors. This high error rate indicates that although the server was still responsive at the  
+TCP level, its application layer was overwhelmed and unable to handle the incoming requests 
+properly. The average connection time was 34.5 ms, with a standard deviation of 66.6 ms, reflecting  
+inconsistent performance under load. This suggests that the server’s HTTP service became highly 
+unstable due to the SYN flooding in the background.
+B. ApacheBench (ab) Performance  Test
+ApacheBench was used to conduct a quick HTTP benchmarking test with 100 requests at a 
+concurrency level of 10. All 100 requests were technically completed, with no failed requests, 
+which at first glance might indicate normal operation. However, all responses were non-2xx, 
+meaning that the server did not provide valid content for any of the requests. This is another 
+indicator that although the server's HTTP service remained online, it was not functioning correctly 
+under the SYN flood pressure. The response times remained relatively low (mean time per request: 
+35.35 ms), but the server’s failure to return successful HTTP status codes reflects severe 
+application-level disruption.
+C. Siege Performance Test
+The siege tool, configured to simulate 50 concurrent users for a duration of one minute, 
+failed almost entirely. Of 1,074 transactions attempted, only one succeeded. The remaining 1,073 
+transactions failed, resulting in an availability rate of just 0.09%. The tool reported excessive socket  
+failures and aborted the test early. This demonstrates a catastrophic failure in maintaining server 
+availability under concurrent access while facing a SYN flood. The average response time was 
+reported as 46.37 seconds, further confirming that the server was effectively unreachable or non-
+functional during the test.
+D. Overall Assessment of Nping SYN Flooding Attack Results
+The SYN flooding attack carried out using nping had a substantial and measurable impact 
+on the target server. While the server did not completely crash, the performance and availability of 
+its web services were significantly degraded across all metrics. Packet loss during the attack was 
+extremely high, and the application layer failed to deliver reliable service. Tcpdump confirmed the 
+14\n\n--- PAGE 16 ---\ndelivery of attack traffic, ruling out any filtering at the network interface level. Performance testing 
+tools such as httperf, ab, and siege demonstrated that the server's ability to respond to HTTP 
+requests was severely compromised—producing mostly 5xx errors, non-2xx responses, or complete  
+connection failures. These findings highlight the vulnerability of the server under SYN flood 
+conditions and underscore the importance of implementing more robust SYN flood defenses and 
+traffic management strategies.
+6.2..2. SYN Flood Attack Using Nping(Port 443)
+The SYN flood attack carried out using nping targeted port 443 of the server 
+(<REDACTED_IP_SPECIFIC>), aiming to overwhelm its ability to manage incoming TCP connections. The attack 
+command sudo nping --tcp --flags syn -p 80 --rate 1000 --count 100000 <REDACTED_IP_SPECIFIC>  rapidly sent 
+100,000 TCP SYN packets at a rate of 1000 packets per second. This method exploits the TCP 
+handshake mechanism, sending numerous SYN packets without completing the handshake, thus 
+consuming server resources and potentially rendering the service unavailable or degraded for 
+legitimate users. This type of attack attempts to exhaust the connection queue and server memory, 
+especially if the server continues to wait for acknowledgments that will never arrive.
+A. Httperf Performance Test
+During the nping SYN flooding attack, the performance of the HTTPS service was 
+evaluated using httperf. The test initiated 500 connections at a rate of 50 connections per second. 
+Results showed a stable response from the server, with all 500 requests receiving replies. The 
+average connection time was 195.3 ms with a connection success rate of 48.1 connections per 
+second. Notably, there were no connection failures or timeouts reported, indicating that the server 
+was able to handle the traffic despite the SYN flood. However, all responses resulted in HTTP 4xx 
+status codes, which could suggest rate limiting or access restrictions triggered by the attack. CPU 
+usage was notably high, with 68.2% of processing time spent in system mode, indicating increased 
+load handling overhead. This suggests the server was under stress but managed to remain 
+responsive.
+B. ApacheBench (ab) Performance Test
+The ApacheBench (ab) test sent 100 HTTPS requests with a concurrency level of 10. 
+Despite the SYN flood in progress, 48 requests were successfully completed while 52 failed, 
+primarily due to content-length mismatches. The average request completion time was 
+approximately 1019 ms, with a maximum of 2227 ms. These elevated latency values and the 52% 
+failure rate indicate moderate service degradation under the stress of the attack. The server still 
+responded with valid SSL/TLS parameters and content, suggesting that its core HTTPS service was 
+operational, albeit impaired. The results imply partial disruption—enough to degrade service quality  
+but not fully deny access.
+15\n\n--- PAGE 17 ---\nC. Siege Performance Test
+The siege test ran for 1 minute with 50 concurrent users targeting the HTTPS server. Despite  
+the ongoing SYN flooding, the server maintained full availability, completing 5732 successful 
+transactions with zero failures. The average response time was 0.51 seconds, with a maximum of 
+3.54 seconds. This demonstrates a high level of resilience from the server during the attack, 
+sustaining a transaction rate of 96.74 requests per second and a throughput of 5.23 MB/sec. These 
+figures suggest that while the server was under load, its performance remained relatively 
+unaffected, possibly due to internal protections like SYN cookies, connection rate limits, or a well-
+tuned kernel. [20]
+D. Overall Assessment of Nping SYN Flooding Attack Results
+The nping-based SYN flooding attack on port 443 effectively generated a high rate of TCP 
+SYN packets intended to exhaust server resources. However, performance tests using httperf, ab, 
+and siege indicate that the server demonstrated considerable robustness against this type of attack. 
+While ApacheBench exposed some degradation with a high request failure rate and increased 
+latency, both httperf and siege tests showed strong performance and near-complete availability. 
+These results suggest that the target system was either well-protected against SYN flood attacks or 
+operating with sufficient capacity to absorb such traffic. In conclusion, the nping SYN flood caused 
+measurable strain but did not succeed in fully compromising the availability or functionality of the 
+HTTPS service on the server.
+ToolPortRequestsSuccess RateAvg. Time Error Info
+Httperf80500100%34.5 ms481 responses with 5xx
+ApacheBench 80100100%30 ms100 responses with 5xx
+Siege8010740.09%46.3 s1073 failed
+Httperf443500100%195.3 ms500 responses with 4xx
+ApacheBench 44310048%923 ms52 length errors
+Siege4435732100%0.51 s 0 errors
+Table 5, Nping Syn-Flooding Attack Network Performance Result
+7. Conclusion & Discussion
+This study investigated the impact of SYN flooding attacks on the performance and 
+availability of the Computer Engineering Department's website at Cukurova University 
+(<REDACTED_HOSTNAME_SPECIFIC>), specifically targeting ports 80 (HTTP) and 443 (HTTPS). The experiments 
+successfully demonstrated the disruptive potential of SYN flooding attacks, while also revealing 
+some resilience in the target server's handling of such attacks, particularly on the HTTPS service.
+The results from the pre-attack performance testing highlighted a significant disparity in the 
+server's ability to handle HTTP and HTTPS traffic on <REDACTED_HOSTNAME_SPECIFIC>. HTTPS consistently showed 
+better performance and stability under load, while HTTP exhibited high error rates and instability, 
+16\n\n--- PAGE 18 ---\neven under relatively low traffic conditions. This baseline is critical for understanding the context in  
+which the SYN flooding attacks were evaluated against <REDACTED_HOSTNAME_SPECIFIC>.
+During the SYN flooding attacks, both hping3 and nping were effective in degrading the 
+server's performance on <REDACTED_HOSTNAME_SPECIFIC>, although the extent of the impact varied. The hping3 
+attacks generally led to more severe disruptions, with increased latency, high error rates, and in 
+some cases, complete unresponsiveness of the HTTP service on <REDACTED_HOSTNAME_SPECIFIC>. Notably, 
+ApacheBench failed to complete tests under the hping3 attack on port 80, indicating a complete 
+breakdown in the server's ability to handle connections to <REDACTED_HOSTNAME_SPECIFIC>.
+The nping attacks also caused significant packet loss and increased server errors on 
+<REDACTED_HOSTNAME_SPECIFIC>, but the server demonstrated a degree of resilience, especially on the HTTPS service.  
+This suggests the possible presence of SYN flood mitigation mechanisms, such as SYN cookies or 
+rate limiting, which helped to maintain some level of service availability for <REDACTED_HOSTNAME_SPECIFIC>. 
+However, even with these potential protections, the server experienced performance degradation, as 
+evidenced by increased response times and error rates. [21]
+The application layer's instability during attacks on <REDACTED_HOSTNAME_SPECIFIC>, reflected in the high 
+number of 5xx and 4xx errors, is a key finding. While the server might have continued to respond at  
+the TCP level, its inability to deliver valid HTTP/HTTPS content highlights the vulnerability of web  
+applications to SYN flooding. This underscores the necessity of robust application-level defenses in  
+addition to network-level mitigation for <REDACTED_HOSTNAME_SPECIFIC>.
+The ethical considerations and controlled environment of this study are paramount. The 
+attacks were conducted with explicit permission and under supervision, ensuring no real harm to the  
+target system (<REDACTED_HOSTNAME_SPECIFIC>). This approach allowed for valuable insights into the server's 
+behavior under stress, contributing to a better understanding of its security posture.
+In conclusion, this project successfully demonstrated the impact of SYN flooding attacks on 
+a real-world web server ( <REDACTED_HOSTNAME_SPECIFIC>). The findings emphasize the importance of implementing 
+comprehensive defense strategies, including network-level mitigation techniques and application-
+level hardening, to ensure the availability and reliability of web services. Further research could 
+explore the effectiveness of specific mitigation techniques and the development of more 
+sophisticated defense mechanisms against evolving DoS attack vectors for systems like 
+<REDACTED_HOSTNAME_SPECIFIC>.
+17\n\n--- PAGE 19 ---\nReferences
+1. [1], [B96]  Bennahum, D., "PANIX ATTACK", MEME 2.12, October 1996,
+                <http://memex.org/meme2-12.html >.
+2. [1], [CB94]  Cheswick, W. and S. Bellovin, "Firewalls and Internet
+                Security", ISBN: 0201633574, January 1994.
+3. [2], [P48-13]  daemon9, route, and infinity, "Project Neptune", Phrack
+                Magazine, V olume 7, Issue 48, File 13 of 18, July 1996.
+4. [3,4], [CA-96.21]  CERT, "CERT Advisory CA-1996-21 TCP SYN Flooding and IP
+                Spoofing Attacks", September 1996.
+5. [5,6,7], [RFC0793]  Postel, J., "Transmission Control Protocol", STD 7,
+                RFC 793, September 1981.
+6. [9,10], [Ste95]      Stevens, W. and G. Wright, "TCP/IP Illustrated, V olume
+                2: The Implementation", January 1995.
+7. [8,9,10], [SKK+97]     Schuba, C., Krsul, I., Kuhn, M., Spafford, E., Sundaram,
+                A., and D. Zamboni, "Analysis of a Denial of Service
+                Attack on TCP", Proceedings of the 1997 IEEE Symposium
+                on Security and Privacy 1997.
+8. [17,18,19,20,21], [cr.yp.to]   Bernstein, D., "SYN cookies", visited in December 2005,
+                <http://cr.yp.to/syncookies.html >.
+9. [6,12], [RFC2960]    Stewart, R., Xie, Q., Morneault, K., Sharp, C.,
+                Schwarzbauer, H., Taylor, T., Rytina, I., Kalla, M.,
+                Zhang, L., and V . Paxson, "Stream Control Transmission
+                Protocol", RFC 2960, October 2000.
+10. [11,12,13,16],  Bogdanoski, M., T. Shuminoski, and A. Risteski,
+Analysis of the SYN flood DoS attack. International
+Journal of Computer Network and Information
+Security, 2013. 5(8): p. 1.
+18\n
