@@ -89,10 +89,12 @@
 
 ## Kaynakça / References (TR/ENG)
 **TR:** Orijinal rapordaki referanslar raporda korunmuştur; raporu incelerken ilgili literatüre başvurunuz.  
+
 **ENG:** References listed in the original report are preserved; consult them for deeper technical background.
 
 ---
 
 ## İletişim / Contact (TR/ENG)
 **TR:** Herhangi bir soru için GitHub Issues kullanabilirsiniz veya repo sahibi ile iletişime geçin.  
+
 **ENG:** For questions, open a GitHub Issue or contact the repository owner.
