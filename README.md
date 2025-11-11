@@ -57,14 +57,6 @@
 4. Recreate the sanitized report using `anonymize_report.py` on the original PDF/text if needed.
 
 ---
-
-## Anonymize Script — Kısıtlar / Limitations (TR/ENG)
-**TR:**  
-`anonymize_report.py` metin tabanlı çıkarım (PyPDF2) ve regex redaksiyon (IP, e-posta, MAC, basit host/domain) uygular. **Görsellerdeki (screenshot) yazılar otomatik temizlenmez**; ekran görüntülerinde hassas bilgi varsa bunları manuel olarak bulanıklaştırmalı/kapatmalısınız. OCR gerektiren taranmış PDF’ler için ek araçlar (Tesseract vb.) gerekebilir.
-
-**ENG:**  
-`anonymize_report.py` performs text extraction (PyPDF2) and regex-based redaction (IPs, emails, MACs, simple host/domains). It **does not** automatically redact text embedded in images/screenshots — you must manually blur or redact any sensitive content in images. Scanned PDFs requiring OCR will need additional tools (Tesseract, etc.).
-
 ---
 
 ## Kesinlikle Eklemeyin / Must NOT Include (TR/ENG)
